@@ -1,0 +1,245 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+    <!-- 引入 manifest -->
+    <link rel="manifest" href="../manifest.json">
+    <!-- 适配移动端视口 -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <!-- 苹果设备的 PWA 图标和状态栏颜色 -->
+    <link rel="apple-touch-icon" href="../images/icon-192.png">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+    <title>PolyCalc - 表达式化简 (iOS 26 视觉优化版)</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+    <link rel="stylesheet" href="./css/app.css" />
+    <link rel="stylesheet" href="../latex/katex/katex.min.css" />
+    <script src="../latex/katex/katex.min.js"></script>
+
+    <style>
+        /* 1. iOS 26 皮肤与壁纸基础环境 */
+        body {
+            color: var(--text-main);
+            background-color: #000;
+            transition: color 0.4s ease;
+            margin: 0;
+        }
+
+        .ios-wallpaper {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: var(--ios-wallpaper);
+            background-size: cover;
+            background-position: center;
+            z-index: -2;
+            /* 【关键修改】移除 transition: background-image 这一行 */
+        }
+
+        /* 2. 组件材质：极致玻璃感 */
+        .glass-island, .ios-card {
+            background: var(--glass-bg) !important;
+            border-color: var(--glass-border) !important;
+            transition: background 0.4s ease, border-color 0.4s ease !important;
+        }
+
+        /* 3. 模态框重构：解决透视重叠，压缩布局 */
+        .ios-modal {
+            /* 提高背景不透明度至 0.99，彻底解决透视问题 */
+            background: var(--modal-bg) !important;
+            border-color: var(--glass-border) !important;
+            backdrop-filter: blur(50px) saturate(180%) !important;
+            -webkit-backdrop-filter: blur(50px) saturate(180%) !important;
+            box-shadow: 0 30px 100px rgba(0,0,0,0.5) !important;
+            border-radius: 28px !important;
+        }
+
+        .modal-body {
+            padding: 0 24px 24px !important; /* 压缩顶部内边距 */
+        }
+
+        /* 【核心修改】大幅度减小竖直高度，实现箭头指向的紧凑感 */
+        .ios-editor {
+            background: transparent !important;
+            box-shadow: none !important;
+            border: none !important;
+            color: var(--text-main) !important;
+            /* 压缩上下间距，特别是底部 */
+            padding: 15px 0 2px !important;
+            margin-bottom: 0 !important;
+            /* 将 min-height 减小，让高度由内容撑开，避免多余留白 */
+            min-height: 32px !important;
+            outline: none !important;
+            font-size: 20px !important;
+            font-family: 'JetBrains Mono', monospace !important;
+            resize: none;
+            line-height: 1.4;
+        }
+
+        /* 【核心修改】预览区紧贴输入框 */
+        .modal-preview-bar {
+            background: var(--glass-inset) !important;
+            border-radius: 20px !important;
+            padding: 16px 20px !important;
+            /* 彻底移除顶部外边距，让灰色块直接衔接输入区 */
+            margin-top: 0px !important;
+            border: none !important;
+            transition: background 0.3s ease !important;
+        }
+
+        .preview-math {
+            background: transparent !important;
+            color: var(--text-main) !important;
+            padding: 0 !important;
+            min-height: 20px;
+        }
+
+        .preview-label {
+            margin-bottom: 6px !important;
+            font-size: 11px !important;
+            font-weight: 800 !important;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            opacity: 0.4;
+            color: var(--text-main);
+        }
+
+        /* 4. 黑夜模式专项适配 */
+        :root[data-theme="dark"] .tab.active {
+            background: #fff !important;
+            color: #1d1d1f !important;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        }
+
+        :root[data-theme="dark"] .mini-actions button {
+            background: rgba(255, 255, 255, 0.08) !important;
+            color: rgba(255, 255, 255, 0.8) !important;
+        }
+
+        /* 5. 通用 UI 细节 */
+        .glass-inset {
+            background: var(--glass-inset) !important;
+        }
+
+        .tab, .card-title-row span {
+            color: var(--text-sub) !important;
+        }
+
+            .tab.active, .brand, .modal-title, .result-highlight {
+                color: var(--text-main) !important;
+            }
+
+        .ios-big-btn {
+            background: var(--accent-blue) !important;
+            font-weight: 700;
+        }
+    </style>
+</head>
+<body>
+    <div class="ios-wallpaper"></div>
+
+    <div class="app-container">
+        <header class="glass-island">
+            <div class="brand">PolyCalc</div>
+            <div class="tabs-scroll-wrapper">
+                <div class="tabs">
+                    <a class="tab active" href="./index.html">表达式化简</a>
+                    <a class="tab" href="./sparse.html">稀疏判定</a>
+                    <a class="tab" href="./operate.html">多项式运算</a>
+                    <a class="tab" href="./solve.html">解方程</a>
+                    <a class="tab" href="./factor.html">因式分解</a>
+                    <a class="tab" href="./eval.html">多项式求值</a>
+                    <a class="tab" href="./plot.html">函数图像</a>
+                </div>
+            </div>
+        </header>
+
+        <main class="page-content">
+            <section class="ios-card spring-touch">
+                <div class="card-title-row">
+                    <div class="icon-label"><span class="ios-icon" style="background: linear-gradient(135deg, #FF9500, #FFCC00);">ƒ</span><span>输入表达式</span></div>
+                    <div class="mini-actions">
+                        <button id="exprInEditBtn" class="ios-btn-pill">编辑</button>
+                        <button id="exprInCopyBtn" class="ios-btn-circle" title="复制">
+                            <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                        </button>
+                    </div>
+                </div>
+                <div class="content-wrapper">
+                    <div id="exprInDisplay" class="math-display glass-inset"></div>
+                </div>
+
+                <div id="exprInPanel" class="ios-modal hidden">
+                    <div class="modal-header">
+                        <button id="exprInCancelBtn" class="text-btn cancel">取消</button>
+                        <span class="modal-title">编辑公式</span>
+                        <button id="exprInOkBtn" class="text-btn done">确认</button>
+                    </div>
+                    <div class="modal-body">
+                        <textarea id="exprInInput" class="ios-editor" placeholder="(x+1)^2"></textarea>
+                        <div class="modal-preview-bar">
+                            <div class="preview-label">预览</div>
+                            <div id="exprInPreview" class="preview-math math-scroll-view"></div>
+                            <div id="exprInErr" class="error-msg"></div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="action-dock spring-touch">
+                <button id="btnSimplify" class="ios-big-btn"><span>开始化简</span></button>
+                <div id="simplifyMsg" class="status-pill"></div>
+            </section>
+
+            <section class="ios-card spring-touch" style="animation-delay: 0.1s;">
+                <div class="card-title-row">
+                    <div class="icon-label"><span class="ios-icon" style="background: #34C759;">=</span><span>化简结果</span></div>
+                    <div class="mini-actions">
+                        <button id="sortOrderBtn" class="ios-btn-pill-blur">升幂排列</button>
+                        <button id="exprOutCopyBtn" class="ios-btn-circle" title="复制结果">
+                            <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                        </button>
+                    </div>
+                </div>
+                <div class="content-wrapper">
+                    <div id="exprOutDisplay" class="math-display glass-inset result-highlight"></div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <div id="copySuccessToast" class="copy-success-toast">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 6px;"><polyline points="20 6 9 17 4 12"></polyline></svg>
+        <span>已复制</span>
+    </div>
+
+    <script src="./js/poly_core.js"></script>
+    <script src="./js/ui_shared.js"></script>
+    <script src="./js/tabs_scroll.js"></script>
+    <script src="./js/page_transition.js"></script>
+    <script src="./js/page_simplify.js"></script>
+
+    <script>
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+        // 注意路径：因为 html 文件在 html/ 目录下，所以 sw.js 在上一级目录
+        navigator.serviceWorker.register('../sw.js')
+            .then(registration => {
+            console.log('ServiceWorker 注册成功:', registration.scope);
+            })
+            .catch(error => {
+            console.log('ServiceWorker 注册失败:', error);
+            });
+        });
+    }
+    </script>
+</body>
+</html>

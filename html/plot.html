@@ -1,0 +1,276 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+    <!-- 引入 manifest -->
+    <link rel="manifest" href="../manifest.json">
+    <!-- 适配移动端视口 -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <!-- 苹果设备的 PWA 图标和状态栏颜色 -->
+    <link rel="apple-touch-icon" href="../images/icon-192.png">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+    <title>PolyCalc - 函数图像 (iOS 26 完美适配版)</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+    <link rel="stylesheet" href="./css/app.css" />
+    <link rel="stylesheet" href="../latex/katex/katex.min.css" />
+    <script src="../latex/katex/katex.min.js"></script>
+
+    <style>
+        /* 1. iOS 26 基础环境 */
+        body { color: var(--text-main); background-color: #000; transition: color 0.4s ease; margin: 0; }
+        .ios-wallpaper { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-image: var(--ios-wallpaper); background-size: cover; background-position: center; z-index: -2; }
+
+        /* 2. 组件材质：恢复纯净的全局玻璃感 */
+        .glass-island, .ios-card {
+            background: var(--glass-bg) !important;
+            border-color: var(--glass-border) !important;
+            transition: background 0.4s ease, border-color 0.4s ease !important;
+        }
+
+        /* 3. 核心修复：独立限制头部宽度，确保与 index.html 完全一致居中 */
+        .plot-app-container { max-width: 1200px; margin: 0 auto; padding: 20px 16px; padding-bottom: 100px; perspective: 1500px; }
+        .glass-island { max-width: 800px; margin-left: auto; margin-right: auto; }
+
+        /* 4. 绘图布局结构 */
+        .plot-glass-layout { display: flex; gap: 24px; align-items: stretch; height: 65vh; min-height: 500px; }
+        
+        .plot-sidebar { width: 420px; flex-shrink: 0; display: flex; flex-direction: column; margin-bottom: 0; max-height: 100%; }
+        .plot-sidebar .content-wrapper { flex: 1; min-height: 0; display: flex; flex-direction: column; padding: 0; background: transparent; }
+        .plot-main { flex: 1; display: flex; flex-direction: column; margin-bottom: 0; max-height: 100%; }
+        
+        .plot-list-container { flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; display: flex; flex-direction: column; gap: 12px; padding: 6px; padding-right: 8px; }
+        .plot-list-container::-webkit-scrollbar { width: 6px; }
+        .plot-list-container::-webkit-scrollbar-track { background: transparent; margin: 16px 0; }
+        .plot-list-container::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.15); border-radius: 4px; }
+        .plot-list-container::-webkit-scrollbar-thumb:hover { background: rgba(0,0,0,0.3); }
+
+        /* 5. 模态框与输入框：对齐 index.html 的紧凑设计 */
+        .ios-modal {
+            background: var(--modal-bg) !important;
+            border-color: var(--glass-border) !important;
+            backdrop-filter: blur(50px) saturate(180%) !important;
+            -webkit-backdrop-filter: blur(50px) saturate(180%) !important;
+            box-shadow: 0 30px 100px rgba(0,0,0,0.5) !important;
+            border-radius: 28px !important;
+        }
+
+        #plotEditPanel.ios-modal {
+            position: fixed; top: 50%; left: 50%; transform: translate(-50%, -40%) scale(0.95);
+            width: 90%; max-width: 420px; height: auto; z-index: 1000;
+        }
+        #plotEditPanel .modal-body { padding: 0 24px 24px !important; }
+
+        .ios-editor {
+            background: transparent !important; box-shadow: none !important; border: none !important; color: var(--text-main) !important;
+            padding: 15px 0 2px !important; margin-bottom: 0 !important; min-height: 32px !important; 
+            outline: none !important; font-size: 20px !important; font-family: 'JetBrains Mono', monospace !important; resize: none; line-height: 1.4;
+        }
+
+        .modal-preview-bar {
+            background: var(--glass-inset) !important; border-radius: 20px !important;
+            padding: 16px 20px !important; margin-top: 0px !important; 
+            border: none !important; transition: background 0.3s ease !important;
+        }
+
+        .preview-math { background: transparent !important; color: var(--text-main) !important; padding: 0 !important; min-height: 20px; }
+        .preview-label { margin-bottom: 6px !important; font-size: 11px !important; font-weight: 800 !important; text-transform: uppercase; letter-spacing: 0.5px; opacity: 0.4; color: var(--text-main); }
+
+        /* =========================================
+           6. 函数列表项与按钮：彻底还原您独立定制的风格
+           ========================================= */
+        .plot-item {
+            background: rgba(255, 255, 255, 0.6); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+            border-radius: 24px; padding: 12px 16px; border: 1px solid rgba(255, 255, 255, 0.6);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.03); transition: transform 0.2s var(--ease-spring), background 0.4s ease;
+            display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;
+        }
+        .plot-item:hover { transform: scale(1.02); background: rgba(255, 255, 255, 0.9); box-shadow: 0 8px 24px rgba(0,0,0,0.06); }
+        .plot-item.invalid { border-color: rgba(255, 59, 48, 0.4); background: rgba(255, 59, 48, 0.05); }
+
+        .plot-info { display: flex; align-items: center; gap: 12px; flex: 1; overflow: hidden; }
+        .plot-color { width: 14px; height: 14px; border-radius: 50%; flex-shrink: 0; }
+        .plot-name { font-weight: 800; color: #111; font-family: var(--font-math); font-size: 16px; white-space: nowrap; transition: color 0.4s ease; }
+        .plot-latex { color: #111; font-size: 16px; overflow-x: auto; white-space: nowrap; scrollbar-width: none; flex: 1; transition: color 0.4s ease; }
+        .plot-latex::-webkit-scrollbar { display: none; }
+
+        .plot-actions { display: flex; gap: 8px; flex-shrink: 0; margin-left: 12px; }
+        .plot-edit-btn, .plot-del-btn {
+            background: rgba(255, 255, 255, 0.9); border: none; border-radius: 12px; padding: 6px 14px;
+            font-size: 13px; font-weight: 700; cursor: pointer; transition: all 0.2s; box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+        }
+        .plot-edit-btn { color: #007AFF; }
+        .plot-del-btn { color: #FF3B30; }
+        .plot-edit-btn:hover, .plot-del-btn:hover { background: #fff; box-shadow: 0 2px 8px rgba(0,0,0,0.08); transform: scale(1.05); }
+
+        /* 7. 画布与开关组件 */
+        .canvas-wrapper { position: relative; flex: 1; width: 100%; border-radius: 24px; overflow: hidden; background: rgba(255, 255, 255, 0.4); box-shadow: inset 0 2px 8px rgba(0,0,0,0.04); border: 1px solid rgba(255,255,255,0.4); display: flex; transition: background 0.4s ease, border-color 0.4s ease; }
+        #plotCanvas { width: 100%; height: 100%; display: block; cursor: default; }
+        #plotCanvas.dragging { cursor: grabbing; }
+
+        .ios-switch-wrapper { display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 14px; font-weight: 600; color: rgba(0,0,0,0.7); user-select: none; }
+        .ios-switch-wrapper input { display: none; }
+        .ios-switch { width: 40px; height: 24px; background: rgba(0,0,0,0.15); border-radius: 12px; position: relative; transition: background 0.3s; box-shadow: inset 0 1px 3px rgba(0,0,0,0.1); }
+        .ios-switch::after { content: ''; position: absolute; top: 2px; left: 2px; width: 20px; height: 20px; background: #fff; border-radius: 50%; box-shadow: 0 2px 6px rgba(0,0,0,0.2); transition: transform 0.3s var(--ease-spring); }
+        .ios-switch-wrapper input:checked + .ios-switch { background: #34C759; }
+        .ios-switch-wrapper input:checked + .ios-switch::after { transform: translateX(16px); }
+
+        /* 通用 UI 细节 */
+        .glass-inset { background: var(--glass-inset) !important; }
+        .tab, .card-title-row span { color: var(--text-sub) !important; }
+        .tab.active, .brand, .modal-title, .result-highlight { color: var(--text-main) !important; }
+
+        /* =========================================
+           8. 黑夜模式深度定制：彻底对齐 index.html
+           ========================================= */
+        :root[data-theme="dark"] .tab.active { background: #fff !important; color: #1d1d1f !important; box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
+        
+        /* 【修改】黑夜模式下，“函数列表”和“图像预览”强制灰白字体 */
+        :root[data-theme="dark"] .card-title-row .icon-label > span:not(.ios-icon) { color: rgba(255, 255, 255, 0.6) !important; }
+
+        /* 列表项与画布背景：统一更改为系统的 glass-inset 材质 */
+        :root[data-theme="dark"] .plot-item,
+        :root[data-theme="dark"] .canvas-wrapper { 
+            background: var(--glass-inset) !important; 
+            border: 1px solid var(--glass-border) !important; 
+        }
+        :root[data-theme="dark"] .plot-item:hover { background: rgba(255, 255, 255, 0.1) !important; }
+
+        /* 黑夜模式函数公式文字高对比度 */
+        :root[data-theme="dark"] .plot-name,
+        :root[data-theme="dark"] .plot-latex { color: #ffffff !important; }
+
+        /* 恢复黑夜模式下的独立编辑按钮风格 */
+        :root[data-theme="dark"] .plot-edit-btn, 
+        :root[data-theme="dark"] .plot-del-btn { background: rgba(255, 255, 255, 0.15); border: none; }
+        :root[data-theme="dark"] .plot-edit-btn { color: #0A84FF; }
+        :root[data-theme="dark"] .plot-del-btn { color: #FF453A; }
+        :root[data-theme="dark"] .plot-edit-btn:hover, 
+        :root[data-theme="dark"] .plot-del-btn:hover { background: rgba(255, 255, 255, 0.25); }
+
+        :root[data-theme="dark"] .switch-text { color: rgba(255, 255, 255, 0.6) !important; }
+        :root[data-theme="dark"] .ios-switch { background: rgba(255, 255, 255, 0.2); }
+        
+        /* 添加按钮的黑夜模式适配 */
+        :root[data-theme="dark"] .mini-actions button.ios-btn-pill { 
+            background: rgba(255, 255, 255, 0.08) !important; color: rgba(255, 255, 255, 0.9) !important; border: none;
+        }
+
+        /* 9. 动画定义 */
+        #plotEditPanel.ios-modal:not(.hidden):not(.is-closing) { display: flex !important; animation: fadeInPlotModal 0.3s var(--ease-spring) forwards; }
+        #plotEditPanel.ios-modal.is-closing { display: flex !important; animation: fadeOutPlotModal 0.2s var(--ease-out) forwards; }
+        @keyframes fadeInPlotModal { from { opacity: 0; transform: translate(-50%, -40%) scale(0.95); } to { opacity: 1; transform: translate(-50%, -50%) scale(1); } }
+        @keyframes fadeOutPlotModal { from { opacity: 1; transform: translate(-50%, -50%) scale(1); } to { opacity: 0; transform: translate(-50%, -40%) scale(0.95); } }
+
+        @media (max-width: 800px) {
+            .plot-glass-layout { flex-direction: column; height: auto; min-height: unset; }
+            .plot-sidebar { width: 100%; height: 300px; margin-bottom: 24px; }
+            .plot-main { height: 450px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="ios-wallpaper"></div>
+
+    <div class="app-container plot-app-container">
+        
+        <header class="glass-island">
+            <div class="brand">PolyCalc</div>
+            <div class="tabs-scroll-wrapper">
+                <div class="tabs">
+                    <a class="tab" href="./index.html">表达式化简</a>
+                    <a class="tab" href="./sparse.html">稀疏判定</a>
+                    <a class="tab" href="./operate.html">多项式运算</a>
+                    <a class="tab" href="./solve.html">解方程</a>
+                    <a class="tab" href="./factor.html">因式分解</a>
+                    <a class="tab" href="./eval.html">多项式求值</a>
+                    <a class="tab active" href="./plot.html">函数图像</a>
+                </div>
+            </div>
+        </header>
+
+        <main class="page-content">
+            <div class="plot-glass-layout">
+                
+                <section class="ios-card plot-sidebar spring-touch">
+                    <div class="card-title-row">
+                        <div class="icon-label">
+                            <span class="ios-icon" style="background: linear-gradient(135deg, #FF2D55, #FF375F);">ƒ</span>
+                            <span>函数列表</span> </div>
+                        <div class="mini-actions">
+                            <button id="addFuncBtn" class="ios-btn-pill">+ 添加</button>
+                        </div>
+                    </div>
+                    <div class="content-wrapper">
+                        <div id="plotList" class="plot-list-container"></div>
+                    </div>
+                </section>
+
+                <section class="ios-card plot-main spring-touch" style="animation-delay: 0.1s;">
+                    <div class="card-title-row">
+                        <div class="icon-label">
+                            <span class="ios-icon" style="background: linear-gradient(135deg, #007AFF, #00C6FF);">📈</span>
+                            <span>图像预览</span> </div>
+                        <div class="mini-actions">
+                            <label class="ios-switch-wrapper" style="margin-right: 8px;">
+                                <input id="snapToggle" type="checkbox" checked />
+                                <span class="ios-switch"></span>
+                                <span class="switch-text">吸附</span>
+                            </label>
+                            <label class="ios-switch-wrapper">
+                                <input id="gridToggle" type="checkbox" checked />
+                                <span class="ios-switch"></span>
+                                <span class="switch-text">网格</span>
+                            </label>
+                        </div>
+                    </div>
+                    <div class="canvas-wrapper">
+                        <canvas id="plotCanvas"></canvas>
+                    </div>
+                </section>
+
+            </div>
+        </main>
+    </div>
+
+    <div id="plotEditPanel" class="ios-modal hidden">
+        <div class="modal-header">
+            <button id="plotEditCancelBtn" class="text-btn cancel">取消</button>
+            <span class="modal-title">编辑函数</span>
+            <button id="plotEditOkBtn" class="text-btn done">确认</button>
+        </div>
+        <div class="modal-body">
+            <textarea id="plotEditInput" class="ios-editor" placeholder="例如：x^2 + 1"></textarea>
+            <div class="modal-preview-bar">
+                <div class="preview-label">预览</div>
+                <div id="plotEditPreview" class="preview-math math-scroll-view"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="./js/tabs_scroll.js"></script>
+    <script src="./js/page_transition.js"></script>
+    <script src="./js/page_plot.js"></script>
+
+    <script>
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+        // 注意路径：因为 html 文件在 html/ 目录下，所以 sw.js 在上一级目录
+        navigator.serviceWorker.register('../sw.js')
+            .then(registration => {
+            console.log('ServiceWorker 注册成功:', registration.scope);
+            })
+            .catch(error => {
+            console.log('ServiceWorker 注册失败:', error);
+            });
+        });
+    }
+    </script>
+</body>
+</html>

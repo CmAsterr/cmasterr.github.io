@@ -1,0 +1,358 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+    <!-- 引入 manifest -->
+    <link rel="manifest" href="../manifest.json">
+    <!-- 适配移动端视口 -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <!-- 苹果设备的 PWA 图标和状态栏颜色 -->
+    <link rel="apple-touch-icon" href="../images/icon-192.png">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+    <title>PolyCalc - 多项式运算 (iOS 26 完美适配版)</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+    <link rel="stylesheet" href="./css/app.css" />
+    <link rel="stylesheet" href="../latex/katex/katex.min.css" />
+    <script src="../latex/katex/katex.min.js"></script>
+
+    <style>
+        /* 1. iOS 26 基础环境适配 */
+        body {
+            color: var(--text-main);
+            background-color: #000;
+            transition: color 0.4s ease;
+            margin: 0;
+        }
+
+        .ios-wallpaper {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: var(--ios-wallpaper);
+            background-size: cover;
+            background-position: center;
+            z-index: -2;
+        }
+
+        /* 2. 组件材质 */
+        .glass-island, .ios-card {
+            background: var(--glass-bg) !important;
+            border-color: var(--glass-border) !important;
+            transition: background 0.4s ease, border-color 0.4s ease !important;
+        }
+
+        /* 3. 模态框重构：完全对齐 index.html */
+        .ios-modal {
+            background: var(--modal-bg) !important;
+            border-color: var(--glass-border) !important;
+            backdrop-filter: blur(50px) saturate(180%) !important;
+            box-shadow: 0 30px 100px rgba(0,0,0,0.5) !important;
+            border-radius: 28px !important;
+        }
+
+        .modal-body {
+            padding: 0 24px 24px !important;
+        }
+
+        /* 【输入框】同步 index.html 的紧凑设计 */
+        .ios-editor {
+            background: transparent !important;
+            border: none !important;
+            color: var(--text-main) !important;
+            padding: 15px 0 2px !important;
+            margin-bottom: 0 !important;
+            min-height: 32px !important;
+            outline: none !important;
+            font-size: 20px !important;
+            font-family: 'JetBrains Mono', monospace !important;
+            resize: none;
+            line-height: 1.4;
+        }
+
+        /* 【预览条】同步 index.html 的零间距衔接 */
+        .modal-preview-bar {
+            background: var(--glass-inset) !important;
+            border-radius: 20px !important;
+            padding: 16px 20px !important;
+            margin-top: 0px !important;
+            border: none !important;
+            transition: background 0.3s ease !important;
+        }
+
+        .preview-math {
+            background: transparent !important;
+            color: var(--text-main) !important;
+            padding: 0 !important;
+            min-height: 20px;
+        }
+
+        .preview-label {
+            margin-bottom: 6px !important;
+            font-size: 11px !important;
+            font-weight: 800 !important;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            opacity: 0.4;
+            color: var(--text-main);
+        }
+
+        /* 4. 存储切换与空间估算 UI */
+        .glass-segment-control {
+            display: inline-flex;
+            background: rgba(255, 255, 255, 0.4);
+            backdrop-filter: blur(20px) saturate(120%);
+            border-radius: 99px;
+            padding: 4px;
+            border: 1px solid rgba(255, 255, 255, 0.5);
+            box-shadow: 0 4px 16px rgba(0,0,0,0.05);
+            margin-bottom: 0;
+        }
+
+        .segment-btn {
+            background: transparent;
+            border: none;
+            padding: 8px 24px;
+            border-radius: 99px;
+            font-size: 13px;
+            font-weight: 700;
+            color: rgba(0,0,0,0.6);
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+        }
+
+            .segment-btn.active {
+                background: #fff;
+                color: var(--accent-blue) !important;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            }
+
+        /* 黑夜模式分段控制器 */
+        :root[data-theme="dark"] .glass-segment-control {
+            background: rgba(28, 28, 30, 0.65);
+            border-color: rgba(255, 255, 255, 0.12);
+        }
+
+        :root[data-theme="dark"] .segment-btn {
+            color: rgba(255, 255, 255, 0.5);
+        }
+
+            :root[data-theme="dark"] .segment-btn.active {
+                background: #fff;
+                color: #1d1d1f !important;
+            }
+
+        .storage-row {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            width: 100%;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+
+        .store-info-glass {
+            background: rgba(255, 255, 255, 0.5);
+            padding: 0 16px;
+            border-radius: 12px;
+            font-family: var(--font-math);
+            font-size: 12px;
+            font-weight: 600;
+            color: rgba(0,0,0,0.5);
+            border: 1px solid rgba(255,255,255,0.4);
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.02);
+            display: flex;
+            align-items: center;
+            height: 38px;
+            overflow-x: auto;
+            white-space: nowrap;
+        }
+
+        /* 黑夜模式空间信息框 */
+        :root[data-theme="dark"] .store-info-glass {
+            background: rgba(255, 255, 255, 0.08) !important;
+            color: #ffffff !important;
+            border: 1px solid rgba(255, 255, 255, 0.1) !important;
+        }
+
+        /* 结果区域按钮左右并排 */
+        #result-mini-actions {
+            display: flex !important;
+            flex-direction: row !important;
+            align-items: center !important;
+            gap: 8px !important;
+        }
+
+        /* 5. 通用 UI 细节 */
+        :root[data-theme="dark"] .tab.active {
+            background: #fff !important;
+            color: #1d1d1f !important;
+        }
+
+        .glass-inset {
+            background: var(--glass-inset) !important;
+        }
+
+        .tab, .card-title-row span {
+            color: var(--text-sub) !important;
+        }
+
+            .tab.active, .brand, .modal-title, .result-highlight {
+                color: var(--text-main) !important;
+            }
+
+        .ios-big-btn {
+            background: var(--accent-blue) !important;
+            font-weight: 700;
+        }
+    </style>
+</head>
+<body>
+    <div class="ios-wallpaper"></div>
+
+    <div class="app-container">
+        <header class="glass-island">
+            <div class="brand">PolyCalc</div>
+            <div class="tabs-scroll-wrapper">
+                <div class="tabs">
+                    <a class="tab" href="./index.html">表达式化简</a>
+                    <a class="tab" href="./sparse.html">稀疏判定</a>
+                    <a class="tab active" href="./operate.html">多项式运算</a>
+                    <a class="tab" href="./solve.html">解方程</a>
+                    <a class="tab" href="./factor.html">因式分解</a>
+                    <a class="tab" href="./eval.html">多项式求值</a>
+                    <a class="tab" href="./plot.html">函数图像</a>
+                </div>
+            </div>
+        </header>
+
+        <main class="page-content">
+            <section class="ios-card spring-touch">
+                <div class="card-title-row">
+                    <div class="icon-label"><span class="ios-icon" style="background: linear-gradient(135deg, #FF2D55, #FF375F);">A</span><span>表达式 A</span></div>
+                    <div class="mini-actions">
+                        <button id="exprAEditBtn" class="ios-btn-pill">编辑</button>
+                        <button id="exprACopyBtn" class="ios-btn-circle" title="复制">
+                            <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                        </button>
+                    </div>
+                </div>
+                <div class="content-wrapper"><div id="exprADisplay" class="math-display glass-inset"></div></div>
+                <div id="exprAPanel" class="ios-modal hidden">
+                    <div class="modal-header">
+                        <button id="exprACancelBtn" class="text-btn cancel">取消</button>
+                        <span class="modal-title">编辑公式 A</span>
+                        <button id="exprAOkBtn" class="text-btn done">确认</button>
+                    </div>
+                    <div class="modal-body">
+                        <textarea id="exprAInput" class="ios-editor" placeholder="x^2 + 1"></textarea>
+                        <div class="modal-preview-bar">
+                            <div class="preview-label">预览</div>
+                            <div id="exprAPreview" class="preview-math math-scroll-view"></div>
+                            <div id="exprAErr" class="error-msg"></div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="action-dock spring-touch">
+                <div class="glass-segment-control">
+                    <button class="segment-btn op-btn active" data-op="add">＋</button>
+                    <button class="segment-btn op-btn" data-op="sub">－</button>
+                    <button class="segment-btn op-btn" data-op="mul">×</button>
+                </div>
+            </section>
+
+            <section class="ios-card spring-touch" style="animation-delay: 0.1s;">
+                <div class="card-title-row">
+                    <div class="icon-label"><span class="ios-icon" style="background: linear-gradient(135deg, #5856D6, #AF52DE);">B</span><span>表达式 B</span></div>
+                    <div class="mini-actions">
+                        <button id="exprBEditBtn" class="ios-btn-pill">编辑</button>
+                        <button id="exprBCopyBtn" class="ios-btn-circle" title="复制">
+                            <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                        </button>
+                    </div>
+                </div>
+                <div class="content-wrapper"><div id="exprBDisplay" class="math-display glass-inset"></div></div>
+                <div id="exprBPanel" class="ios-modal hidden">
+                    <div class="modal-header">
+                        <button id="exprBCancelBtn" class="text-btn cancel">取消</button>
+                        <span class="modal-title">编辑公式 B</span>
+                        <button id="exprBOkBtn" class="text-btn done">确认</button>
+                    </div>
+                    <div class="modal-body">
+                        <textarea id="exprBInput" class="ios-editor" placeholder="x - 1"></textarea>
+                        <div class="modal-preview-bar">
+                            <div class="preview-label">预览</div>
+                            <div id="exprBPreview" class="preview-math math-scroll-view"></div>
+                            <div id="exprBErr" class="error-msg"></div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="action-dock spring-touch" style="animation-delay: 0.15s;">
+                <div class="storage-row">
+                    <div class="glass-segment-control">
+                        <button class="segment-btn store-btn active" data-store="dyn">动态存储</button>
+                        <button class="segment-btn store-btn" data-store="seq">顺序存储</button>
+                    </div>
+                    <div id="storeInfo" class="store-info-glass">≈ --</div>
+                </div>
+                <button id="btnCalc" class="ios-big-btn"><span>开始计算</span></button>
+                <div id="calcMsg" class="status-pill"></div>
+            </section>
+
+            <section class="ios-card spring-touch" style="animation-delay: 0.2s;">
+                <div class="card-title-row">
+                    <div class="icon-label"><span class="ios-icon" style="background: #34C759;">=</span><span>运算结果</span></div>
+                    <div id="result-mini-actions" class="mini-actions">
+                        <button id="sortOrderBtn" class="ios-btn-pill-blur">升幂排列</button>
+                        <button id="exprOutCopyBtn" class="ios-btn-circle" title="复制结果">
+                            <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                        </button>
+                    </div>
+                </div>
+                <div class="content-wrapper">
+                    <div id="exprOutDisplay" class="math-display glass-inset result-highlight"></div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <div id="copySuccessToast" class="copy-success-toast">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 6px;"><polyline points="20 6 9 17 4 12"></polyline></svg>
+        <span>已复制</span>
+    </div>
+
+    <script src="./js/poly_core.js"></script>
+    <script src="./js/ui_shared.js"></script>
+    <script src="./js/tabs_scroll.js"></script>
+    <script src="./js/page_transition.js"></script>
+    <script src="./js/page_operate.js"></script>
+
+    <script>
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+        // 注意路径：因为 html 文件在 html/ 目录下，所以 sw.js 在上一级目录
+        navigator.serviceWorker.register('../sw.js')
+            .then(registration => {
+            console.log('ServiceWorker 注册成功:', registration.scope);
+            })
+            .catch(error => {
+            console.log('ServiceWorker 注册失败:', error);
+            });
+        });
+    }
+    </script>
+</body>
+</html>
